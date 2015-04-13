@@ -9,96 +9,64 @@ def main():
     try:
         conn = boto.ec2.connect_to_region(args.region,aws_access_key_id=args.aws_access_key_id,aws_secret_access_key=args.aws_secret_access_key,profile_name=args.profile)
     except:
-        print "UNKNOWN: Unable to connect to reqion %s" % args.region
+        print "UNKNOWN: Unable to connect to reqion %s" %(args.region)
         sys.exit(3)
 
-
-    if not args.filename:
-
-        try:
-            ins=conn.get_all_instances(filters={'tag-key':'Name', 'tag-value':args.tagname})[0].instances[0]
-        except:
-            print "UNKNOWN: Not match Tag Name %s" % args.tagname
-            sys.exit(1)
-        
-        if args.cmd == 'start':
-          if not ins.state == 'running':
-            print "Starting"
-            ins.start()
-          else:
-            print "Error:already running or starting up!"
-            sys.exit(1) 
-        
-        elif args.cmd == 'stop':
-          if ins.state == 'running':
-            print "Stopping"
-            ins.stop()
-          else:
-            print "Error:Stopping instance"
-            sys.exit(1)    
-        
+    try:
+        if not args.filename:
+            strList = args.tagname.split()
         else:
-          print "UNKNOWN: option -o start or stop"
-          sys.exit(1)
+            try:
+                f = open(args.filename, 'r')
+                strList = f.readlines()
+            except:
+                print '"%s" cannot be opened.' %(args.filename)
+            finally:
+                f.close()
 
-        sys.exit(0)
+        for tagname in strList:
+            try:
+                ins=conn.get_all_instances(filters={'tag-key':'Name', 'tag-value':tagname.strip()})[0].instances[0]
+            except:
+                print "UNKNOWN: Not match Tag Name %s" %(tagname.strip())
+                sys.exit(1)
 
-    else:
-
-        f = open(args.filename, 'r')
-        try:
-            strList = f.readlines()
-            for tagname in strList:
-
-                try:
-                    ins=conn.get_all_instances(filters={'tag-key':'Name', 'tag-value':tagname.strip()})[0].instances[0]
-                except:
-                    print "UNKNOWN: Not match Tag Name %s" % tagname.strip()
-                    sys.exit(1)
-
-                if args.cmd == 'start':
-                  if not ins.state == 'running':
-                    print "Starting"
+            if args.cmd == 'start':
+                if not ins.state == 'running':
+                    print "Starting [Name:%s] [ID:%s]" %(ins.__dict__['tags']['Name'],ins.id)
                     ins.start()
-                  else:
-                    print "Error:already running or starting up!"
-                    sys.exit(1)
-
-                elif args.cmd == 'stop':
-                  if ins.state == 'running':
-                    print "Stopping"
-                    ins.stop()
-                  else:
-                    print "Error:Stopping instance"
-                    sys.exit(1)
-
                 else:
-                  print "UNKNOWN: option -o start or stop"
-                  sys.exit(1)
+                    print "Error:already running or starting up! [Name:%s] [ID:%s]" %(ins.__dict__['tags']['Name'],ins.id)
+                    sys.exit(1)
 
-        except:
-            print '"%s" cannot be opened.' % args.filename
-
-        finally:
-            f.close()
-
-
-        sys.exit(0) 
-
+            elif args.cmd == 'stop':
+                if ins.state == 'running':
+                    print "Stopping [Name:%s] [ID:%s]" %(ins.__dict__['tags']['Name'],ins.id)
+                    ins.stop()
+                else:
+                    print "Error:Stopping instance [Name:%s] [ID:%s]" %(ins.__dict__['tags']['Name'],ins.id)
+                    sys.exit(1)
+            else:
+                print "UNKNOWN: [Name:%s] [ID:%s]" %(ins.__dict__['tags']['Name'],ins.id)
+                sys.exit(1)
+    except:
+       print ("UNKNOWN: Abnormal termination") 
+        
+    sys.exit(0)
 #
 #引数の処理
 #
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Instance Start Stop')
 
-    parser.add_argument('cmd', choices=['start', 'stop'],help="you can select function in ['start', 'stop'].")    
+    parser.add_argument('cmd', choices=['start', 'stop'],help="you can select function in ['start', 'stop'].")
     parser.add_argument('-a', '--aws-access-key-id', required=False, dest='aws_access_key_id', help='AWS Access Key')
     parser.add_argument('-s', '--aws-secret-access-key', required=False, dest='aws_secret_access_key', help='AWS Secret Access Key')
     parser.add_argument('--profile', required=False, dest='profile', help=' Profile name of AWS shared credential file entry.')
     parser.add_argument('-r', '--region', required=True, dest='region', help='AWS Region')
     parser.add_argument('-n', '--name', required=False, dest='tagname', help='Name_Tag')
     parser.add_argument('-f', '--filename', required=False, dest='filename', help='List File')
-    
+
     args = parser.parse_args()
 
     main()
